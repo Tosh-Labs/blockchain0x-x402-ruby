@@ -1,0 +1,8 @@
+.bundle/
+vendor/
+pkg/
+*.gem
+.rspec_status
+.DS_Store
+.vscode/
+.idea/

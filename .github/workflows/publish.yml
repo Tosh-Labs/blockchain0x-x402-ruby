@@ -1,0 +1,44 @@
+# Publish `blockchain0x-x402` to rubygems via Trusted Publisher OIDC.
+# Manual dispatch only.
+#
+# Requires rubygems Trusted Publisher binding on
+# https://rubygems.org/gems/blockchain0x-x402/trusted_publishers:
+#   Provider:          GitHub Actions
+#   Owner:             Tosh-Labs
+#   Repository:        blockchain0x-x402-ruby
+#   Workflow filename: publish.yml
+#   Environment:       rubygems
+#
+# This file is mirrored from the private monorepo
+# `Tosh-Labs/blockchain0x-app:packages/sdk-ruby-x402/.public-templates/.github/workflows/publish.yml`
+# by the `mirror-sdk-ruby-x402` workflow there.
+
+name: publish
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: rubygems
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+
+      - name: build gem
+        run: |
+          gem build blockchain0x-x402.gemspec
+          ls -la blockchain0x-x402-*.gem
+
+      - name: publish to rubygems (Trusted Publisher OIDC)
+        uses: rubygems/release-gem@v1
