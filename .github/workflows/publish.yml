@@ -40,5 +40,17 @@ jobs:
           gem build blockchain0x-x402.gemspec
           ls -la blockchain0x-x402-*.gem
 
-      - name: publish to rubygems (Trusted Publisher OIDC)
-        uses: rubygems/release-gem@v1
+      - name: configure rubygems credentials (Trusted Publisher OIDC)
+        # Exchange the GitHub OIDC token for a short-lived rubygems publish
+        # token via the Trusted Publisher binding on rubygems.org. No
+        # RUBYGEMS_API_KEY. Pinned to the SHA that rubygems/release-gem@v1
+        # vendors internally.
+        uses: rubygems/configure-rubygems-credentials@762a4b77c3300434bb57c7ce80b20e36231927aa
+
+      - name: push gem to rubygems
+        # Use `gem push` directly rather than `rake release`. The mirror
+        # workflow already created + pushed the v<version> git tag, so
+        # bundler's `rake release` (which re-tags) would collide; and
+        # `gem push` needs no Rakefile or rake dev-dependency. The gem was
+        # built in the previous step.
+        run: gem push blockchain0x-x402-*.gem
