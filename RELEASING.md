@@ -6,10 +6,10 @@ main Ruby SDK: bump version.rb → mirror → publish.
 ## Prerequisites (one-time, owner)
 
 1. **rubygems gem**: register `blockchain0x-x402` on rubygems.
-2. **Public mirror repo**: create `Tosh-Labs/blockchain0x-x402-ruby`.
+2. **Public mirror repo**: create `tosh-labs/blockchain0x-x402-ruby`.
 3. **GitHub PAT**: reuse `MIRROR_TO_PUBLIC_GITHUB_PAT_TOKEN`.
 4. **Rubygems Trusted Publisher binding**: GitHub Actions on
-   `Tosh-Labs/blockchain0x-x402-ruby`, workflow `publish.yml`,
+   `tosh-labs/blockchain0x-x402-ruby`, workflow `publish.yml`,
    environment `rubygems`.
 
 ## Release flow
@@ -33,7 +33,7 @@ as the gate, mirrors the snapshot, tags `v<version>`.
 
 ### Step 3 - publish from the public repo
 
-`Tosh-Labs/blockchain0x-x402-ruby` -> Actions -> `publish` -> Run.
+`tosh-labs/blockchain0x-x402-ruby` -> Actions -> `publish` -> Run.
 Trusted Publisher OIDC exchange ships the gem to rubygems within
 ~30 seconds.
 

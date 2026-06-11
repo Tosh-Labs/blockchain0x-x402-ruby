@@ -21,6 +21,14 @@
 # wrapper propagates that response unchanged so the caller can
 # decide whether to loop or surface to the user.
 #
+# Spend policy (sub-plan 27.1 A6): the 402 challenge is
+# ATTACKER-CONTROLLED input. Callers MUST set `max_amount_wei`
+# (and should set `allowed_pay_to`) so a malicious or compromised
+# seller cannot drain the session allowance by quoting an
+# arbitrary amount/recipient. The wrapper also enforces the
+# requirement's maxAgeSeconds and refuses 402s that match no
+# known network instead of guessing.
+#
 # The `sdk` is duck-typed: any object responding to
 # `network`, `payments_create(args)`, and `transactions_get(id)`
 # works. Tests mock the surface; production passes a
@@ -39,24 +47,40 @@ module Blockchain0xX402
 
     # @param sdk [#network, #payments_create, #transactions_get]
     # @param agent_id [String] wallet that funds the on-chain payment
+    # @param max_amount_wei [String, nil] spend ceiling in 6-dp USDC base
+    #   units (27.1 A6). SET THIS - a 402 quoting more is refused with
+    #   ClientError 'amount_over_cap' before any payment is created.
+    # @param allowed_pay_to [Array<String>, nil] optional recipient
+    #   allowlist (27.1 A6); compared case-insensitively.
     # @param confirm_timeout_seconds [Integer]
     # @param confirm_poll_seconds    [Float]
     # @param connection [Faraday::Connection, nil] test seam
     # @param sleep_proc [#call, nil] test seam for the poll loop
+    # @param now_proc [#call, nil] test seam for the maxAgeSeconds clock
     def initialize(
       sdk:,
       agent_id:,
+      max_amount_wei: nil,
+      allowed_pay_to: nil,
       confirm_timeout_seconds: DEFAULT_CONFIRM_TIMEOUT_SECONDS,
       confirm_poll_seconds: DEFAULT_CONFIRM_POLL_SECONDS,
       connection: nil,
-      sleep_proc: nil
+      sleep_proc: nil,
+      now_proc: nil
     )
+      if !max_amount_wei.nil? && !max_amount_wei.to_s.match?(/\A[0-9]+\z/)
+        raise ArgumentError, 'max_amount_wei must be an integer string of 6-dp USDC base units'
+      end
+
       @sdk = sdk
       @agent_id = agent_id
+      @max_amount_wei = max_amount_wei&.to_s
+      @allowed_pay_to = allowed_pay_to&.map(&:downcase)
       @confirm_timeout = confirm_timeout_seconds
       @confirm_poll = confirm_poll_seconds
       @conn = connection || Faraday.new
       @sleep = sleep_proc || Kernel.method(:sleep)
+      @now = now_proc || method(:monotonic_now)
     end
 
     # Perform an HTTP request that handles 402 automatically.
@@ -70,7 +94,11 @@ module Blockchain0xX402
       return first unless first.status == 402
 
       spec = Wire.parse_402_response(first)
+      challenge_at = @now.call
       requirement = pick_requirement(spec.accepts)
+      # 27.1 A6: the 402 is attacker-controlled input - enforce the
+      # caller's spend policy BEFORE any payment is created.
+      enforce_spend_policy(requirement)
       payment = @sdk.payments_create(
         agent_id: @agent_id,
         to: requirement.pay_to_address,
@@ -80,6 +108,18 @@ module Blockchain0xX402
       raise ClientError.new('chain_failed', 'payments_create did not return an id.') if payment_id.nil?
 
       confirmed = wait_for_confirmation(payment_id)
+      # 27.1 A6: a proof that confirmed after the requirement's
+      # maxAgeSeconds window is refused client-side, not presented.
+      if requirement.max_age_seconds
+        elapsed = @now.call - challenge_at
+        if elapsed > requirement.max_age_seconds
+          raise ClientError.new(
+            'stale_challenge',
+            "challenge expired: confirmation took #{elapsed.round}s, " \
+              "maxAgeSeconds is #{requirement.max_age_seconds}.",
+          )
+        end
+      end
 
       header = Wire.build_payment_header(
         Wire::ExactUsdcPayment.new(
@@ -119,6 +159,24 @@ module Blockchain0xX402
       raise ClientError.new(
         'no_matching_requirement',
         "402 accepts list has no entry for network=#{target.inspect}.",
+      )
+    end
+
+    # 27.1 A6: spend-policy gate, evaluated before any payment exists.
+    def enforce_spend_policy(requirement)
+      if @max_amount_wei && Integer(requirement.amount_wei_usdc, 10) > Integer(@max_amount_wei, 10)
+        raise ClientError.new(
+          'amount_over_cap',
+          "402 quotes #{requirement.amount_wei_usdc} wei USDC, above the " \
+            "configured max_amount_wei #{@max_amount_wei}.",
+        )
+      end
+      return unless @allowed_pay_to && !@allowed_pay_to.include?(requirement.pay_to_address.downcase)
+
+      raise ClientError.new(
+        'recipient_not_allowed',
+        "402 pay-to address #{requirement.pay_to_address} is not in the " \
+          'configured allowed_pay_to list.',
       )
     end
 

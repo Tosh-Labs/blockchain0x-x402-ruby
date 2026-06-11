@@ -35,8 +35,14 @@ module Blockchain0xX402
   # challenge. Codes:
   #
   #   no_matching_requirement  - no accepts entry matched the SDK network
+  #                              (or the network is unknown; sub-plan 27.1
+  #                              A6 - a refusal, never an accepts[0] guess)
   #   settlement_timeout       - on-chain payment did not confirm in budget
   #   chain_failed             - payment status flipped to failed
+  #   amount_over_cap          - 402 quoted above max_amount_wei (27.1 A6)
+  #   recipient_not_allowed    - payToAddress outside allowed_pay_to (27.1 A6)
+  #   stale_challenge          - confirmation landed after the requirement's
+  #                              maxAgeSeconds window (27.1 A6)
   class ClientError < Error
   end
 end

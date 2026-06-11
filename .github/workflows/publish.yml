@@ -4,13 +4,13 @@
 # Requires rubygems Trusted Publisher binding on
 # https://rubygems.org/gems/blockchain0x-x402/trusted_publishers:
 #   Provider:          GitHub Actions
-#   Owner:             Tosh-Labs
+#   Owner:             tosh-labs
 #   Repository:        blockchain0x-x402-ruby
 #   Workflow filename: publish.yml
 #   Environment:       rubygems
 #
 # This file is mirrored from the private monorepo
-# `Tosh-Labs/blockchain0x-app:packages/sdk-ruby-x402/.public-templates/.github/workflows/publish.yml`
+# `tosh-labs/blockchain0x-app:packages/sdk-ruby-x402/.public-templates/.github/workflows/publish.yml`
 # by the `mirror-sdk-ruby-x402` workflow there.
 
 name: publish

@@ -5,5 +5,5 @@
 # frozen_string_literal: true
 
 module Blockchain0xX402
-  VERSION = '0.0.1.alpha.0'
+  VERSION = '0.0.1.alpha.1'
 end
